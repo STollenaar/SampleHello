@@ -1,0 +1,85 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-{{ include "sample-chart.shortname" . }}-deny-all
+spec:
+  podSelector:
+    matchLabels:
+        {{- include "sample-chart.selectorLabels" . | nindent 8 }}
+  policyTypes:
+  - Egress
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "sample-chart.shortname" . }}-allow-traffic
+spec:
+  podSelector:
+    matchLabels:
+        {{- include "sample-chart.selectorLabels" . | nindent 8 }}
+  policyTypes:
+  - Egress
+  - Ingress
+  ingress:
+  #! TODO: add the appropriate to selectors for incoming connected services. This is an example of adding the nginx ingress
+
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: ingress-nginx
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{.Values.ingressNginxNamespace}}
+    ports:
+    - protocol: TCP
+      port: 80
+  egress:
+#! TODO: add the appropriate to selectors for connected services. This is an example of adding timescaledb
+  - to:
+    - podSelector:
+        matchLabels:
+         app.kubernetes.io/name: timescaledb
+    ports:
+    - protocol: TCP
+      port: 5432
+#! DO NOT remove the below to entries. These are needed for feign to connect to the kubernetes api endpoint
+#! and for the DNS resolving when using internal cluster URLs as well as the keycloak connectivity
+  {{- if contains "svc.cluster.local" .Values.auth.issuerUri }}
+  - to:
+    - podSelector:
+        matchLabels:
+         app.kubernetes.io/name: keycloak
+    ports:
+    - protocol: TCP
+      port: 80
+  {{-  else }}
+  - ports:
+    - port: 443
+      protocol: TCP
+    to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: app-ingress
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: ingress-nginx
+  {{- end }}
+  - to:
+      - ipBlock:
+          cidr: {{ (first (first (lookup "v1" "Endpoints" "default" "kubernetes").subsets).addresses).ip }}/32 
+    ports:
+      - protocol: TCP
+        port: 16443
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP

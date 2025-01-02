@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sample-chart.shortname" . }}
+  labels:
+    {{- include "sample-chart.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "sample-chart.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "sample-chart.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "sample-chart.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ include "sample-chart.shortname" . }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.host }}/{{ .Values.image.repository }}:{{ .Values.app.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: aims8-tcp
+              containerPort: {{ .Values.aims8.port }}
+              protocol: TCP
+          env:
+            - name: SERVER_PORT
+              value: '8080'
+            - name: SPRING_PROFILES_ACTIVE
+              value: {{ .Values.profiles }}
+            - name: CHAT_HOST
+              value: {{ .Values.chatHost }}
+            - name: CHAT_DOMAIN
+              value: {{ .Values.chatDomain }}
+            - name: TRACKDB_HOST
+              value: {{ .Values.trackdbHost }}
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER-URI
+              value: {{ .Values.auth.issuerUri }}
+            - name: AIMS8_TCP_PORT
+              value: "{{ .Values.aims8.port }}"
+          livenessProbe:
+            initialDelaySeconds: 20
+            httpGet:
+              path: /actuator/health
+              port: http
+          readinessProbe:
+            initialDelaySeconds: 10
+            httpGet:
+              path: /actuator/health
+              port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - mountPath: "/app/uploads"
+              name: appweb-storage
+            - mountPath: "/app/chat-uploads"
+              name: appweb-storage
+      volumes:
+        - name: appweb-storage
+          persistentVolumeClaim:
+            {{- if and .Values.persistence.enabled .Values.persistence.existingClaim }}
+            claimName: {{ .Values.persistence.existingClaim }}
+            {{- else }}
+            claimName: {{ .Values.persistence.pvcClaim }}
+            {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

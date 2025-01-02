@@ -1,0 +1,128 @@
+# Default values for app-web-chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+app:
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: v0.5.0
+  blobStorageClass: azurefile-premium
+
+profiles: dev
+chatHost: mongooseim
+chatDomain: chat.mongooseim
+trackdbHost: trackdb
+
+ingressNginxNamespace: app-ingress
+
+
+configMap:
+  name: app-config-configmap
+
+replicaCount: 1
+
+image:
+  host: host.azurecr.io
+  repository: repo/image
+  pullPolicy: IfNotPresent
+
+auth:
+  enabled: false
+  issuerUri: https://example.com/
+
+postgresql:
+  postgresqlDatabase: app
+  postgresqlUsername: postgres
+  postgresqlPassword: pass
+
+imagePullSecrets: []
+nameOverride: app-sample
+fullnameOverride: app-sample
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations:
+    app.kubernetes.io/managed-by: Helm
+    meta.helm.sh/release-name:  app-sample
+    meta.helm.sh/release-namespace: default
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: samplesserviceaccount
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: LoadBalancer
+  port: 80
+
+aims8:
+  enabled: false
+  port: 31563
+
+ingress:
+  enabled: false
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 100m
+  auth:
+    annotations:
+
+      nginx.ingress.kubernetes.io/auth-url: https://$host/oauth2/auth
+      nginx.ingress.kubernetes.io/auth-signin: https://$host/oauth2/start?rd=$escaped_request_uri
+      nginx.ingress.kubernetes.io/auth-response-headers: Authorization,X-Auth-Request-Access-Token
+  host: dev.aims-app.com
+  path: /sample
+  tls:
+    enabled: false
+    secretName: tls-secret-name
+
+persistence:
+  enabled: false
+  size: 20Gi
+  finalizers:
+    - kubernetes.io/pvc-protection
+  existingClaim:
+  pvcClaim: appweb-azurefile-pvc
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Example of extra config files needing to be used. If not set the default files from the config folder will be used
+config: {}
+
+applicationProperties:
+  app-db:
+    url: "http://app-db/"
